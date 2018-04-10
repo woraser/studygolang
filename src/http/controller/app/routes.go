@@ -9,9 +9,12 @@ package app
 import "github.com/labstack/echo"
 
 func RegisterRoutes(g *echo.Group) {
+	new(IndexController).RegisterRoute(g)
 	new(ArticleController).RegisterRoute(g)
 	new(TopicController).RegisterRoute(g)
 	new(ResourceController).RegisterRoute(g)
 	new(ProjectController).RegisterRoute(g)
 	new(UserController).RegisterRoute(g)
+	new(WechatController).RegisterRoute(g)
+	new(CommentController).RegisterRoute(g)
 }

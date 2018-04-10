@@ -19,7 +19,8 @@ type IndexLogic struct{}
 
 var DefaultIndex = IndexLogic{}
 
-func (IndexLogic) FindData(ctx context.Context, tab string) map[string]interface{} {
+func (self IndexLogic) FindData(ctx context.Context, tab string, paginator *Paginator) map[string]interface{} {
+
 	indexNav := GetCurIndexNav(tab)
 	if indexNav == nil {
 		indexNav = WebsiteSetting.IndexNavs[0]
@@ -40,11 +41,9 @@ func (IndexLogic) FindData(ctx context.Context, tab string) map[string]interface
 
 	switch {
 	case indexNav.DataSource == "feed":
-		topFeeds := DefaultFeed.FindTop(ctx)
-		feeds := DefaultFeed.FindRecent(ctx, 50)
-		data["feeds"] = append(topFeeds, feeds...)
+		data["feeds"] = self.findFeeds(ctx, paginator)
 	case isNid:
-		paginator := NewPaginator(1)
+		paginator = NewPaginator(1)
 
 		node := GetNode(nid)
 		if node["pid"].(int) == 0 {
@@ -74,7 +73,7 @@ func (IndexLogic) FindData(ctx context.Context, tab string) map[string]interface
 		if len(nids) > 0 {
 			questions := strings.TrimSuffix(strings.Repeat("?,", len(nids)), ",")
 			querystring := "nid in(" + questions + ")"
-			paginator := NewPaginator(1)
+			paginator = NewPaginator(1)
 			topics := DefaultTopic.FindAll(ctx, paginator, "topics.mtime DESC", querystring, nids...)
 			if len(topics) > 0 {
 				hasData = true
@@ -124,7 +123,17 @@ func (IndexLogic) FindData(ctx context.Context, tab string) map[string]interface
 		data["cur_nav"] = newIndexNav
 	case indexNav.DataSource == "article":
 		data["articles"] = DefaultArticle.FindBy(ctx, 50)
+	case indexNav.DataSource == "subject":
+		data["subjects"] = DefaultSubject.FindBy(ctx, paginator)
+	default:
+		data["feeds"] = self.findFeeds(ctx, paginator)
 	}
 
 	return data
+}
+
+func (self IndexLogic) findFeeds(ctx context.Context, paginator *Paginator) []*model.Feed {
+	topFeeds := DefaultFeed.FindTop(ctx)
+	feeds := DefaultFeed.FindRecentWithPaginator(ctx, paginator)
+	return append(topFeeds, feeds...)
 }

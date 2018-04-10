@@ -724,6 +724,21 @@ CREATE TABLE IF NOT EXISTS `gctt_timeline` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT 'GCTT 大事记';
 
 
+CREATE TABLE IF NOT EXISTS `gctt_issue` (
+  `id` int unsigned NOT NULL DEFAULT 0 COMMENT '选题的 issue 编号',
+  `translator` varchar(31) NOT NULL DEFAULT '' COMMENT '译者 Github 用户名',
+  `email` varchar(63) NOT NULL DEFAULT '' COMMENT '译者邮箱', 
+  `title` varchar(127) NOT NULL DEFAULT '' COMMENT 'issue 标题',
+  `translating_at` int unsigned NOT NULL DEFAULT 0 COMMENT '开始翻译时间（认领时间）',
+  `translated_at` int unsigned NOT NULL DEFAULT 0 COMMENT '完成翻译时间（close 时间）',
+  `label` varchar(31) NOT NULL DEFAULT '' COMMENT '标签，如：已认领，待认领',
+  `state` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '0-opened；1-closed',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX (`label`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT 'GCTT github 选题 issue 列表';
+
+
 CREATE TABLE IF NOT EXISTS `subject` (
   `id` int unsigned NOT NULL AUTO_INCREMENT COMMENT '专栏ID',
   `name` varchar(31) NOT NULL DEFAULT '' COMMENT '专栏名',
@@ -732,7 +747,9 @@ CREATE TABLE IF NOT EXISTS `subject` (
   `uid` int unsigned NOT NULL DEFAULT 0 COMMENT '创建者UID',
   `contribute` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '是否允许投稿, 0-不允许；1-允许',
   `audit` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '投稿是否需要审核, 0-不需要；1-需要',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `article_num` int unsigned NOT NULL DEFAULT 0 COMMENT '收录的文章数',
+  `created_at` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00' COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT '专栏';
@@ -768,3 +785,35 @@ CREATE TABLE IF NOT EXISTS `subject_follower` (
   UNIQUE KEY (`sid`,`uid`),
   INDEX (`uid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT '专栏关注者';
+
+CREATE TABLE IF NOT EXISTS `download` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT COMMENT '自增',
+  `version` varchar(31) NOT NULL DEFAULT '' COMMENT '版本号',
+  `filename` varchar(63) NOT NULL DEFAULT '' COMMENT '文件名', 
+  `kind` varchar(31) NOT NULL DEFAULT '' COMMENT '类型',
+  `os` varchar(31) NOT NULL DEFAULT '' COMMENT '操作系统',
+  `arch` varchar(31) NOT NULL DEFAULT '' COMMENT '架构',
+  `size` int unsigned NOT NULL DEFAULT 0 COMMENT '大小，单位 MB',
+  `checksum` varchar(64) NOT NULL DEFAULT '' COMMENT 'SHA1/256 校验和',
+  `is_recommend` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '是否推荐（推荐的高亮显示）',
+  `category` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '0-Archived versions; 1-Stable versions; 2-Unstable versions;', 
+  `seq` int unsigned NOT NULL DEFAULT 0 COMMENT '排序，越大越靠前',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT '下载信息表';
+
+CREATE TABLE `wechat_user` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '自增id',
+  `openid` varchar(127) NOT NULL DEFAULT '' COMMENT '用户的标识，对当前公众号/小程序唯一',
+  `nickname` varchar(127) NOT NULL DEFAULT '' COMMENT '用户的昵称',
+  `session_key` varchar(127) NOT NULL DEFAULT '' COMMENT '小程序返回的 session_key',
+  `avatar` varchar(255) NOT NULL DEFAULT '' COMMENT '用户微信头像',
+  `open_info` varchar(1024) NOT NULL DEFAULT '' COMMENT '用户微信的其他信息，json格式',
+  `uid` int(11) unsigned NOT NULL DEFAULT '0' COMMENT '用户UID',
+  `created_at` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `openid` (`openid`),
+  KEY `uid` (`uid`),
+  KEY `updated_at` (`updated_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='微信用户绑定表';

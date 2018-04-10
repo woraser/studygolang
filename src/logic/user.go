@@ -37,11 +37,13 @@ func (self UserLogic) CreateUser(ctx context.Context, form url.Values) (errMsg s
 	objLog := GetLogger(ctx)
 
 	if self.UserExists(ctx, "email", form.Get("email")) {
-		err = errors.New("该邮箱已注册过")
+		errMsg = "该邮箱已注册过"
+		err = errors.New(errMsg)
 		return
 	}
 	if self.UserExists(ctx, "username", form.Get("username")) {
-		err = errors.New("用户名已存在")
+		errMsg = "用户名已存在"
+		err = errors.New(errMsg)
 		return
 	}
 
@@ -85,9 +87,21 @@ func (self UserLogic) CreateUser(ctx context.Context, form url.Values) (errMsg s
 		errMsg = "内部服务错误！"
 		session.Rollback()
 		objLog.Errorln("create user error:", err)
-	} else {
-		session.Commit()
+		return
 	}
+
+	if form.Get("id") != "" {
+		id := goutils.MustInt(form.Get("id"))
+		_, err = DefaultWechat.Bind(ctx, id, user.Uid, form.Get("userInfo"))
+		if err != nil {
+			session.Rollback()
+			objLog.Errorln("bind wechat user error:", err)
+			errMsg = err.Error()
+			return
+		}
+	}
+
+	session.Commit()
 
 	return
 }
@@ -114,8 +128,15 @@ func (self UserLogic) Update(ctx context.Context, me *model.Me, form url.Values)
 		cols += ",email,status"
 		user.Status = model.UserStatusNoAudit
 	}
-	_, err = MasterDB.Id(me.Uid).Cols(cols).Update(user)
+
+	session := MasterDB.NewSession()
+	defer session.Close()
+	session.Begin()
+
+	_, err = session.Id(me.Uid).Cols(cols).Update(user)
 	if err != nil {
+		session.Rollback()
+
 		objLog.Errorf("更新用户 【%d】 信息失败：%s", me.Uid, err)
 		if strings.Contains(err.Error(), "Error 1062: Duplicate entry") {
 			// TODO：被恶意注册？
@@ -125,6 +146,17 @@ func (self UserLogic) Update(ctx context.Context, me *model.Me, form url.Values)
 		}
 		return
 	}
+
+	_, err = session.Table(new(model.UserLogin)).
+		Where("uid=?", me.Uid).Update(map[string]interface{}{"email": me.Email})
+	if err != nil {
+		session.Rollback()
+		objLog.Errorf("更新用户 【%d】 信息失败：%s", me.Uid, err)
+		errMsg = "对不起，服务器内部错误，请稍后再试！"
+		return
+	}
+
+	session.Commit()
 
 	// 修改用户资料，活跃度+1
 	go self.IncrUserWeight("uid", me.Uid, 1)
